@@ -1,65 +1,36 @@
 <?php
 
-require_once 'vendor/autoload.php';
-
-use Guzzle\Http\Client;
-
 class HeyWatch {
 
-    const HEYWATCH_URL = "https://heywatch.com";
-    const USER_AGENT = "HeyWatch PHP/1.0";
+  const HEYWATCH_URL = "https://heywatch.com";
+  const USER_AGENT = "HeyWatch/2.0.0 (PHP)";
 
-    public $client;
+  public static function submit($config_content, $api_key=null) {
+    $heywatch_url = self::HEYWATCH_URL;
 
-    public function __construct($user, $password) {
-        $this->client = new Client(self::HEYWATCH_URL, array(
-            'request.options' => array(
-                'headers' => array('Accept' => 'application/json'),
-                'auth'    => array($user, $password, 'Basic')
-            )
-
-        ));
-
-        $this->client->setUserAgent(self::USER_AGENT);
+    if(!$api_key) {
+      $api_key = getenv("HEYWATCH_API_KEY");
     }
 
-    public function account() {
-        return $this->request("/account");
-    }
+    if($url = getenv("HEYWATCH_URL"))
+      $heywatch_url = $url;
 
-    public function all($resource) {
-        return $this->request("/".$resource);
-    }
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $heywatch_url . "/api/v1/job");
+    curl_setopt($ch, CURLOPT_USERPWD, $api_key . ":");
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $config_content);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_USERAGENT, self::USER_AGENT);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+      'Content-Length: ' . strlen($config_content),
+      'Content-Type: text/plain',
+      'Accept: application/json')
+    );
 
-    public function info($resource, $id) {
-        return $this->request("/".$resource."/".$id);
-    }
-
-    public function create($resource, $params=array()) {
-        return $this->request("/".$resource, "post", $params);
-    }
-
-    public function update($resource, $params=array()) {
-        return $this->request("/".$resource, "put", $params);
-    }
-
-    public function delete($resource, $id) {
-        return $this->request("/".$resource."/".$id, "delete");
-    }
-
-    private function request($path, $method="get", $params=array()) {
-        $request = $this->client->$method($path, array(), $params);
-        $response = $request->send();
-
-        if(strlen(trim($response->getBody())) == 0) {
-            return True;
-        }
-
-        if(strpos($response->getHeader("Content-Type"), "json") != False) {
-            return $response->json();
-        } else {
-            return $response->getBody();
-        }
-    }
+    $result = curl_exec($ch);
+    return json_decode($result);
+  }
 }
+
 ?>
